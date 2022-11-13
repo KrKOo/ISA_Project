@@ -7,9 +7,10 @@
 struct Arguments
 {
 	std::string filename;
-	std::string netflow_collector;
-	int active_interval;
-	int inactive_interval;
+	std::string netflow_collector_host;
+	uint16_t netflow_collector_port;
+	long active_interval;
+	long inactive_interval;
 	int flow_cache_size;
 };
 

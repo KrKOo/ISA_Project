@@ -1,9 +1,4 @@
 #include <iostream>
-#include <cstdint>
-#include <pcap/pcap.h>
-#include <net/ethernet.h>
-#include <netinet/ip.h>
-#include <netinet/ip_icmp.h>
 #include <fstream>
 #include <string>
 
@@ -18,7 +13,8 @@ int main(int argc, char **argv)
 
 	Arguments defaultArguments = {
 		.filename = "",
-		.netflow_collector = "127.0.0.1:2005",
+		.netflow_collector_host = "127.0.0.1",
+		.netflow_collector_port = 2055,
 		.active_interval = 60,
 		.inactive_interval = 10,
 		.flow_cache_size = 1024};
@@ -26,14 +22,19 @@ int main(int argc, char **argv)
 	ArgumentParser argumentParser(argc, argv);
 	Arguments arguments = argumentParser.parse(defaultArguments);
 
-	FILE *pcapFile = fopen(arguments.filename.c_str(), "r");
-	if (pcapFile == NULL)
+	FILE *pcapFile = stdin;
+	if (arguments.filename != "")
 	{
-		std::cout << "Error opening file" << std::endl;
-		return 1;
+		pcapFile = fopen(arguments.filename.c_str(), "r");
+		if (pcapFile == NULL)
+		{
+			std::cout << "Error opening file" << std::endl;
+			return 1;
+		}
 	}
 
-	FlowCache *flowCache = new FlowCache(arguments.flow_cache_size);
+	Exporter exporter(arguments.netflow_collector_host, arguments.netflow_collector_port);
+	FlowCache *flowCache = new FlowCache(arguments.flow_cache_size, arguments.active_interval, arguments.inactive_interval, &exporter);
 
 	PacketParser packetParser(pcapFile, flowCache);
 	packetParser.parse();

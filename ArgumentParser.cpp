@@ -34,8 +34,17 @@ Arguments ArgumentParser::parse(Arguments &defaultArguments)
 			arguments.filename = getArgument();
 			break;
 		case 'c':
-			arguments.netflow_collector = getArgument();
-			break;
+		{
+			std::string netflow_collector = getArgument();
+			arguments.netflow_collector_host = netflow_collector.substr(0, netflow_collector.find(":"));
+
+			std::size_t pos = netflow_collector.find(":");
+			if (pos != std::string::npos)
+			{
+				arguments.netflow_collector_port = std::stoi(netflow_collector.substr(pos + 1));
+			}
+		}
+		break;
 		case 'a':
 			arguments.active_interval = getNumericArgument();
 			break;

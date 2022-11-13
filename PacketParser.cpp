@@ -20,10 +20,21 @@ void PacketParser::parse()
 {
 	char errbuf[PCAP_ERRBUF_SIZE] = {0};
 	pcap_t *pcap = pcap_fopen_offline(this->pcapFile, errbuf);
-	setFilter(pcap, "icmp || tcp || udp");
+	if (pcap == NULL)
+	{
+		throw std::runtime_error("Error opening pcap file");
+		return;
+	}
 
+	setFilter(pcap, "icmp || tcp || udp");
 	pcap_loop(pcap, 0, packetHandler, (u_char *)(this->flowCache));
-	std::cout << errbuf << std::endl;
+
+	if (errbuf[0] != 0)
+	{
+		throw std::runtime_error(errbuf);
+	}
+
+	flowCache->exportAll();
 }
 
 void PacketParser::setFilter(pcap_t *handle, const char *filterString)
@@ -58,7 +69,6 @@ void PacketParser::packetHandler(u_char *args, const struct pcap_pkthdr *header,
 		if (ipHeader->protocol == IPPROTO_TCP)
 		{
 			tcphdr *tcpHeader = (tcphdr *)(packet + sizeof(ether_header) + sizeof(iphdr));
-
 			record = FlowCache::createRecord(tcpHeader, ipHeader, header->ts);
 		}
 		else if (ipHeader->protocol == IPPROTO_UDP)
