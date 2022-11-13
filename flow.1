@@ -4,7 +4,7 @@ flow \- NetFlow exporter
 .SH SYNOPSIS
 .B flow
 [\fB\-f\fR \fIfile\fR]
-[\fB\-c\fR \fIhostname\fR[:\fIport\fR]
+[\fB\-c\fR \fIhost\fR[:\fIport\fR]
 [\fB\-a\fR \fIactive_timeout\fR]
 [\fB\-i\fR \fIinactive_timeout\fR]
 [\fB\-m\fR \fIcount\fR]
@@ -19,8 +19,8 @@ Read the input pcap from \fIfile\fR.
 .br
 Default is \fIstdin\fR.
 .TP
-.BR \-c " " \fIhostname\fR[:\fIport\fR]
-The NetFlow records are sent to \fIhostname\fR:\fIport\fR.
+.BR \-c " " \fIhost\fR[:\fIport\fR]
+The NetFlow records are sent to the collector at \fIhost\fR:\fIport\fR.
 .br
 Default is 127.0.0.1:2055.
 .TP
@@ -32,7 +32,7 @@ Default is 60.
 .TP
 .BR \-i " " \fIinactive_timeout\fR
 Sets the inactive timeout to \fIinactive_timeout\fR seconds.
-If a flow is inactive for at least \fIinactive_timer\fR seconds, it gets exported to the collector.
+If a flow is inactive for at least \fIinactive_timeout\fR seconds, it gets exported to the collector.
 .br
 Default is 10.
 .TP
