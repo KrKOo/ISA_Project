@@ -7,8 +7,8 @@
 FlowCache::FlowCache(uint32_t flowCacheSize, long activeInterval, long inactiveInterval, Exporter *exporter)
 {
 	this->flowCacheSize = flowCacheSize;
-	this->activeInterval = activeInterval * 1000000;
-	this->inactiveInterval = inactiveInterval * 1000000;
+	this->activeInterval = activeInterval * 1000;
+	this->inactiveInterval = inactiveInterval * 1000;
 	this->exporter = exporter;
 	this->flowSequence = 0;
 	this->systemBootTime = {};
@@ -20,7 +20,6 @@ FlowCache::~FlowCache()
 
 void FlowCache::upsertRecord(NF5Record record)
 {
-
 	checkCacheSize();
 	checkTimers();
 
@@ -39,6 +38,13 @@ void FlowCache::upsertRecord(NF5Record record)
 		it->first = std::min(it->first, record.first);
 		it->last = std::max(it->last, record.last);
 		it->tcp_flags = it->tcp_flags | record.tcp_flags;
+
+		if (record.tcp_flags & TH_FIN || record.tcp_flags & TH_RST)
+		{
+			exportFlows({*it});
+			cache.erase(it);
+			static int i = 0;
+		}
 	}
 	else
 	{
@@ -57,12 +63,13 @@ void FlowCache::checkTimers()
 
 	for (auto it = this->cache.begin(); it != this->cache.end();)
 	{
+		static int i = 0;
 		if (getSystemUptime() - it->last > this->inactiveInterval)
 		{
 			flowsToExport.push_back(*it);
 			it = this->cache.erase(it);
 		}
-		else if (getSystemUptime() - it->first > this->activeInterval)
+		else if (it->last - it->first > this->activeInterval)
 		{
 			flowsToExport.push_back(*it);
 			it = this->cache.erase(it);
@@ -81,7 +88,7 @@ void FlowCache::checkTimers()
 
 void FlowCache::checkCacheSize()
 {
-	if (this->cache.size() >= this->flowCacheSize)
+	if (this->cache.size() > this->flowCacheSize)
 	{
 		exportFlows({popOldestFlow()});
 	}
@@ -126,7 +133,6 @@ void FlowCache::exportFlowChunk(std::vector<NF5Record> chunk)
 {
 	this->flowSequence += chunk.size();
 
-	std::cout << "Current time " << this->currentTime.tv_sec * 1000 + this->currentTime.tv_usec / 1000 << std::endl;
 	FlowPacket flowPacket = {
 		.header = {
 			.version = htons(5),
@@ -165,7 +171,7 @@ NF5Record FlowCache::createRecord(tcphdr *tcpHeader, iphdr *ipHeader, timeval ti
 	record.doctets = htonl(ntohs(ipHeader->tot_len));
 	record.first = htonl(timeToSystemUptime(timestamp));
 	record.last = htonl(timeToSystemUptime(timestamp));
-	record.tcp_flags = tcpHeader->fin | tcpHeader->syn | tcpHeader->rst | tcpHeader->psh | tcpHeader->ack | tcpHeader->urg;
+	record.tcp_flags = tcpHeader->th_flags;
 
 	return networkToHostByteOrder(record);
 }
