@@ -11,6 +11,7 @@ FlowCache::FlowCache(uint32_t flowCacheSize, long activeInterval, long inactiveI
 	this->inactiveInterval = inactiveInterval * 1000000;
 	this->exporter = exporter;
 	this->flowSequence = 0;
+	this->systemBootTime = {};
 }
 
 FlowCache::~FlowCache()
@@ -19,7 +20,7 @@ FlowCache::~FlowCache()
 
 void FlowCache::upsertRecord(NF5Record record)
 {
-	this->currentTime = record.last;
+
 	checkCacheSize();
 	checkTimers();
 
@@ -56,12 +57,12 @@ void FlowCache::checkTimers()
 
 	for (auto it = this->cache.begin(); it != this->cache.end();)
 	{
-		if (this->currentTime - it->last > this->inactiveInterval)
+		if (getSystemUptime() - it->last > this->inactiveInterval)
 		{
 			flowsToExport.push_back(*it);
 			it = this->cache.erase(it);
 		}
-		else if (this->currentTime - it->first > this->activeInterval)
+		else if (getSystemUptime() - it->first > this->activeInterval)
 		{
 			flowsToExport.push_back(*it);
 			it = this->cache.erase(it);
@@ -112,7 +113,6 @@ void FlowCache::exportFlows(std::vector<NF5Record> flows)
 	{
 		for (size_t j = 0; j < 30 && i * 30 + j < flows.size(); j++)
 		{
-			// NF5Record record = flows[i * 30 + j];
 			chunk.push_back(hostToNetworkByteOrder(flows[i * 30 + j]));
 		}
 
@@ -125,13 +125,15 @@ void FlowCache::exportFlows(std::vector<NF5Record> flows)
 void FlowCache::exportFlowChunk(std::vector<NF5Record> chunk)
 {
 	this->flowSequence += chunk.size();
+
+	std::cout << "Current time " << this->currentTime.tv_sec * 1000 + this->currentTime.tv_usec / 1000 << std::endl;
 	FlowPacket flowPacket = {
 		.header = {
 			.version = htons(5),
 			.count = htons(chunk.size()),
-			.sys_uptime = htonl(0),
-			.unix_secs = htonl(this->currentTime / 1000),
-			.unix_nsecs = htonl((this->currentTime % 1000) * 1000),
+			.sys_uptime = htonl(getSystemUptime()),
+			.unix_secs = htonl(this->currentTime.tv_sec),
+			.unix_nsecs = htonl(this->currentTime.tv_usec * 1000),
 			.flow_sequence = htonl(this->flowSequence),
 			.engine_type = 0,
 			.engine_id = 0,
@@ -152,6 +154,7 @@ bool FlowCache::compare(const NF5Record &record1, const NF5Record &record2)
 
 NF5Record FlowCache::createRecord(tcphdr *tcpHeader, iphdr *ipHeader, timeval timestamp)
 {
+	setCurrentTime(timestamp);
 	NF5Record record = {};
 	record.src_addr = ipHeader->saddr;
 	record.dst_addr = ipHeader->daddr;
@@ -160,8 +163,8 @@ NF5Record FlowCache::createRecord(tcphdr *tcpHeader, iphdr *ipHeader, timeval ti
 	record.prot = ipHeader->protocol;
 	record.dpkts = htonl(1);
 	record.doctets = htonl(ntohs(ipHeader->tot_len));
-	record.first = timestamp.tv_sec;
-	record.last = timestamp.tv_sec;
+	record.first = htonl(timeToSystemUptime(timestamp));
+	record.last = htonl(timeToSystemUptime(timestamp));
 	record.tcp_flags = tcpHeader->fin | tcpHeader->syn | tcpHeader->rst | tcpHeader->psh | tcpHeader->ack | tcpHeader->urg;
 
 	return networkToHostByteOrder(record);
@@ -169,6 +172,7 @@ NF5Record FlowCache::createRecord(tcphdr *tcpHeader, iphdr *ipHeader, timeval ti
 
 NF5Record FlowCache::createRecord(udphdr *udpHeader, iphdr *ipHeader, timeval timestamp)
 {
+	setCurrentTime(timestamp);
 	NF5Record record = {};
 	record.src_addr = ipHeader->saddr;
 	record.dst_addr = ipHeader->daddr;
@@ -177,14 +181,15 @@ NF5Record FlowCache::createRecord(udphdr *udpHeader, iphdr *ipHeader, timeval ti
 	record.prot = ipHeader->protocol;
 	record.dpkts = htonl(1);
 	record.doctets = htonl(ntohs(ipHeader->tot_len));
-	record.first = timestamp.tv_sec;
-	record.last = timestamp.tv_sec;
+	record.first = htonl(timeToSystemUptime(timestamp));
+	record.last = htonl(timeToSystemUptime(timestamp));
 
 	return networkToHostByteOrder(record);
 }
 
 NF5Record FlowCache::createRecord(icmphdr *icmpHeader, iphdr *ipHeader, timeval timestamp)
 {
+	setCurrentTime(timestamp);
 	(void)icmpHeader;
 	NF5Record record = {};
 	record.src_addr = ipHeader->saddr;
@@ -192,8 +197,8 @@ NF5Record FlowCache::createRecord(icmphdr *icmpHeader, iphdr *ipHeader, timeval 
 	record.prot = ipHeader->protocol;
 	record.dpkts = htonl(1);
 	record.doctets = htonl(ntohs(ipHeader->tot_len));
-	record.first = timestamp.tv_sec;
-	record.last = timestamp.tv_sec;
+	record.first = htonl(timeToSystemUptime(timestamp));
+	record.last = htonl(timeToSystemUptime(timestamp));
 
 	return networkToHostByteOrder(record);
 }
@@ -234,4 +239,28 @@ NF5Record FlowCache::networkToHostByteOrder(NF5Record record)
 	record.dst_as = ntohs(record.dst_as);
 
 	return record;
+}
+
+void FlowCache::setCurrentTime(timeval time)
+{
+	initSystemBootTime(time);
+	this->currentTime = time;
+}
+
+uint32_t FlowCache::timeToSystemUptime(timeval time)
+{
+	return (time.tv_sec - this->systemBootTime.tv_sec) * 1000 + (time.tv_usec - this->systemBootTime.tv_usec) / 1000;
+}
+
+uint32_t FlowCache::getSystemUptime()
+{
+	return timeToSystemUptime(this->currentTime);
+}
+
+void FlowCache::initSystemBootTime(timeval time)
+{
+	if (this->systemBootTime.tv_sec == 0 && this->systemBootTime.tv_usec == 0)
+	{
+		this->systemBootTime = time;
+	}
 }

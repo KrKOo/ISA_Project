@@ -22,7 +22,8 @@ private:
 	Exporter *exporter;
 	std::vector<NF5Record> cache;
 	uint32_t flowSequence;
-	long currentTime;
+	timeval currentTime;
+	timeval systemBootTime;
 
 	void checkTimers();
 	void checkCacheSize();
@@ -32,13 +33,17 @@ private:
 	static bool compare(const NF5Record &record1, const NF5Record &record2);
 	static NF5Record hostToNetworkByteOrder(NF5Record record);
 	static NF5Record networkToHostByteOrder(NF5Record record);
+	void setCurrentTime(timeval time);
+	uint32_t timeToSystemUptime(timeval time);
+	uint32_t getSystemUptime();
+	void initSystemBootTime(timeval time);
 
 public:
 	FlowCache(uint32_t flowCacheSize, long activeInterval, long inactiveInterval, Exporter *exporter);
 	~FlowCache();
-	static NF5Record createRecord(tcphdr *tcpHeader, iphdr *ipHeader, timeval timestamp);
-	static NF5Record createRecord(udphdr *udpHeader, iphdr *ipHeader, timeval timestamp);
-	static NF5Record createRecord(icmphdr *icmpHeader, iphdr *ipHeader, timeval timestamp);
+	NF5Record createRecord(tcphdr *tcpHeader, iphdr *ipHeader, timeval timestamp);
+	NF5Record createRecord(udphdr *udpHeader, iphdr *ipHeader, timeval timestamp);
+	NF5Record createRecord(icmphdr *icmpHeader, iphdr *ipHeader, timeval timestamp);
 	void upsertRecord(NF5Record record);
 	void exportAll();
 };

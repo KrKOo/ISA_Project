@@ -69,17 +69,17 @@ void PacketParser::packetHandler(u_char *args, const struct pcap_pkthdr *header,
 		if (ipHeader->protocol == IPPROTO_TCP)
 		{
 			tcphdr *tcpHeader = (tcphdr *)(packet + sizeof(ether_header) + sizeof(iphdr));
-			record = FlowCache::createRecord(tcpHeader, ipHeader, header->ts);
+			record = flowCache->createRecord(tcpHeader, ipHeader, header->ts);
 		}
 		else if (ipHeader->protocol == IPPROTO_UDP)
 		{
 			udphdr *udpHeader = (udphdr *)(packet + sizeof(ether_header) + sizeof(iphdr));
-			record = FlowCache::createRecord(udpHeader, ipHeader, header->ts);
+			record = flowCache->createRecord(udpHeader, ipHeader, header->ts);
 		}
 		else if (ipHeader->protocol == IPPROTO_ICMP)
 		{
 			icmphdr *icmpHeader = (icmphdr *)(packet + sizeof(ether_header) + sizeof(iphdr));
-			record = FlowCache::createRecord(icmpHeader, ipHeader, header->ts);
+			record = flowCache->createRecord(icmpHeader, ipHeader, header->ts);
 		}
 
 		flowCache->upsertRecord(record);
