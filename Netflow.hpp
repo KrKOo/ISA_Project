@@ -42,6 +42,7 @@ struct NF5Record
 	uint16_t __pad2;
 };
 
+// NetFlow v5 packet
 struct FlowPacket
 {
 	NF5Header header;

@@ -43,7 +43,6 @@ void FlowCache::upsertRecord(NF5Record record)
 		{
 			exportFlows({*it});
 			cache.erase(it);
-			static int i = 0;
 		}
 	}
 	else
@@ -63,7 +62,6 @@ void FlowCache::checkTimers()
 
 	for (auto it = this->cache.begin(); it != this->cache.end();)
 	{
-		static int i = 0;
 		if (getSystemUptime() - it->last > this->inactiveInterval)
 		{
 			flowsToExport.push_back(*it);

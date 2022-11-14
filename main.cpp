@@ -33,11 +33,19 @@ int main(int argc, char **argv)
 		}
 	}
 
-	Exporter exporter(arguments.netflow_collector_host, arguments.netflow_collector_port);
-	FlowCache *flowCache = new FlowCache(arguments.flow_cache_size, arguments.active_interval, arguments.inactive_interval, &exporter);
+	try
+	{
+		Exporter exporter(arguments.netflow_collector_host, arguments.netflow_collector_port);
+		FlowCache *flowCache = new FlowCache(arguments.flow_cache_size, arguments.active_interval, arguments.inactive_interval, &exporter);
 
-	PacketParser packetParser(pcapFile, flowCache);
-	packetParser.parse();
+		PacketParser packetParser(pcapFile, flowCache);
+		packetParser.parse();
+	}
+	catch (std::exception &e)
+	{
+		std::cout << e.what() << std::endl;
+		return 1;
+	}
 
 	fclose(pcapFile);
 
