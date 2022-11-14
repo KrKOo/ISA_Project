@@ -1,5 +1,27 @@
 # Netflow exporter
 
+**Author**: Kristián Kováč (xkovac61)
+
+**Date**: 14.11.2022
+
+**Files**:
+
+- ArgumentParser.hpp
+- ArgumentParser.cpp
+- PacketParser.hpp
+- PacketParser.cpp
+- FlowCache.hpp
+- FlowCache.cpp
+- Exporter.hpp
+- Exporter.cpp
+- Netflow.hpp
+- Makefile
+- README.md
+- flow.1
+- manual.pdf
+
+## Usage
+
 `./flow [-f file] [-c host[:port] [-a active_timeout] [-inactive_timeout] [-m count]`
 
 `-f file` - Read the input pcap from `file`.
